@@ -1,0 +1,65 @@
+name: Browser Web Terminal (Port 8080)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  web-vps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Install and Start Root Web Terminal (ttyd on port 8080)
+        run: |
+          # 1. Download official ttyd binary
+          sudo curl -sLo /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64
+          sudo chmod +x /usr/local/bin/ttyd
+
+          # 2. Set root password
+          echo "root:runner" | sudo chpasswd
+
+          # 3. Start web terminal running bash directly as root with write permissions
+          # Bound to 127.0.0.1:8080
+          sudo ttyd --port 8080 --credential root:runner -W /bin/bash > ttyd.log 2>&1 &
+          sleep 2
+
+      - name: Start Public Web Tunnel & Output Link
+        run: |
+          # Forward local port 8080 over HTTPS using Pinggy HTTP tunnel
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -p 443 -R0:localhost:8080 a.pinggy.io > pinggy.log 2>&1 &
+          
+          # Wait up to 20 seconds for the public https:// link
+          for i in {1..20}; do
+            WEB_URL=$(grep -oE "https://[a-zA-Z0-9.-]+\.pinggy(-free)?\.link" pinggy.log | head -n 1)
+            if [ -n "$WEB_URL" ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -n "$WEB_URL" ]; then
+            echo "=========================================================="
+            echo "🚀 PUBLIC WEB TERMINAL READY!"
+            echo ""
+            echo "Open this link in any browser:"
+            echo "  $WEB_URL"
+            echo ""
+            echo "Credentials:"
+            echo "  Username: root"
+            echo "  Password: runner"
+            echo "=========================================================="
+
+            # Post directly to the GitHub Actions Job Summary
+            echo "### 🌐 Web VPS Terminal Access" >> $GITHUB_STEP_SUMMARY
+            echo "- **Web URL:** [$WEB_URL]($WEB_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Username:** \`root\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Password:** \`runner\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Failed to generate tunnel link. Raw log output:"
+            cat pinggy.log
+            exit 1
+          fi
+
+      - name: Keep Runner Alive
+        run: |
+          echo "Web terminal running..."
+          sleep 21600
