@@ -1,32 +1,28 @@
-name: 24/7 Automation
+name: Fixed 24-7 Automation
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Adjust this frequency based on your needs
-  workflow_dispatch:        # Manual trigger
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install requests
+      - name: Install Packages
+        run: python -m pip install requests
 
-      - name: Run Inline Python Script
+      - name: Run Python Code
         env:
           API_KEY: ${{ secrets.API_KEY }}
         run: |
           import os
           import requests
-          
-          print("The script is successfully running inline!")
-          
-          # Your custom python code goes here:
-          api_key = os.environ.get("API_KEY")
-          # response = requests.get(f"https://example.com{api_key}")
-          # print(response.status_code)
+          print("If you see this, it finally worked!")
